@@ -44,23 +44,23 @@ def append_to_index(index_path, metadata):
             writer.writeheader()
         writer.writerow(metadata)
 
-async def download_camera(camera_name, camera_ip, target_date):
+def download_camera(camera_name, camera_ip, target_date):
     """Downloads recordings and generates metadata indexing."""
     output_dir = os.path.join(LOCAL_STORAGE, camera_name, target_date)
     os.makedirs(output_dir, exist_ok=True)
     
-    # Path for the local metadata index (will be synced to cloud)
     index_csv_path = os.path.join(output_dir, f"metadata_index_{camera_name}_{target_date}.csv")
     
     write_log(f"    - Connecting to {camera_name} ({camera_ip})...")
     tapo = Tapo(camera_ip, "admin", CLOUD_PASS, cloudPassword=CLOUD_PASS)
 
-    recordings = await asyncio.get_event_loop().run_in_executor(None, tapo.getRecordings, target_date)
+    # These are native synchronous calls in pytapo
+    recordings = tapo.getRecordings(target_date)
     if not recordings:
         write_log(f"    - ⚠️ No recordings found on {camera_name} for {target_date}.")
         return 0
 
-    timeCorrection = await asyncio.get_event_loop().run_in_executor(None, tapo.getTimeCorrection)
+    timeCorrection = tapo.getTimeCorrection()
     total_downloaded = 0
     write_log(f"    - Found {len(recordings)} recording blocks. Starting download sequence...")
     
@@ -69,18 +69,15 @@ async def download_camera(camera_name, camera_ip, target_date):
             start_ts = recording[key]["startTime"]
             end_ts = recording[key]["endTime"]
             
-            # Convert Unix timestamps to human-readable format
             start_dt = datetime.fromtimestamp(start_ts)
             end_dt = datetime.fromtimestamp(end_ts)
             
             start_str = start_dt.strftime("%H%M%S")
             end_str = end_dt.strftime("%H%M%S")
             
-            # Formatted string: e.g., Ground_Backyard_2026-06-10_143000-144500.mp4
             fileName = f"{camera_name}_{start_dt.strftime('%Y-%m-%d')}_{start_str}-{end_str}.mp4"
             final_path = os.path.join(output_dir, fileName)
             
-            # Skip if file already exists
             if os.path.exists(final_path) and os.path.getsize(final_path) > 0:
                 continue
 
@@ -89,14 +86,17 @@ async def download_camera(camera_name, camera_ip, target_date):
                 output_dir, None, False, 50, fileName=fileName
             )
             
-            async for status in downloader.download():
-                pass # Silently download
+            # Run the downloader's async generator inside a fresh event loop
+            async def run_downloader():
+                async for status in downloader.download():
+                    pass
+            
+            asyncio.run(run_downloader())
             
             if os.path.exists(final_path):
                 total_downloaded += 1
                 size_mb = os.path.getsize(final_path) / (1024 * 1024)
                 
-                # Write to metadata index
                 metadata = {
                     "Camera_Name": camera_name,
                     "Date": target_date,
@@ -153,18 +153,13 @@ def main():
     write_log(f"\n## Tapo Synchronization Report: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     write_log(f"**Target Date Extracted:** {target_date}\n")
     
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    
     success_count = 0
     
     for cam in CAMERAS:
         write_log(f"### Camera: {cam['name']}")
         for attempt in range(1, MAX_RETRIES + 1):
             try:
-                files_downloaded = loop.run_until_complete(
-                    download_camera(cam['name'], cam['ip'], target_date)
-                )
+                files_downloaded = download_camera(cam['name'], cam['ip'], target_date)
                 write_log(f"    - ✅ Extracted {files_downloaded} video blocks + generated metadata index.")
                 
                 if sync_to_cloud(cam['name'], target_date):
@@ -174,10 +169,10 @@ def main():
                 
             except Exception as e:
                 write_log(f"    - ❌ Error on attempt {attempt}/{MAX_RETRIES}: {str(e)}")
+                traceback.print_exc()
                 if attempt < MAX_RETRIES:
                     time.sleep(RETRY_DELAY)
     
-    loop.close()
     write_log(f"\n**Summary:** {success_count}/{len(CAMERAS)} cameras fully synchronized to Google Drive.")
     cleanup_old_files()
 
