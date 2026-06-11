@@ -96,7 +96,11 @@ def download_camera(camera_name, camera_ip, target_date):
                             raise Exception("Download failed.")
                         pass
             
-            asyncio.run(run_downloader())
+            try:
+                asyncio.run(run_downloader())
+            except Exception as e:
+                write_log(f"    - ⚠️ Skipping corrupted block {fileName} due to stream failure: {type(e).__name__} - {str(e)}")
+                continue
             
             if os.path.exists(final_path):
                 total_downloaded += 1
