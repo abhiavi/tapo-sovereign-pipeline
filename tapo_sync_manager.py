@@ -84,7 +84,7 @@ def download_camera(camera_name, camera_ip, target_date):
             # Pytapo concatenates output_dir + fileName without os.path.join
             downloader = Downloader(
                 tapo, start_ts, end_ts, timeCorrection,
-                output_dir + "/", fileName=fileName
+                output_dir + "/", window_size=50, fileName=fileName
             )
             
             # Run the downloader's async generator inside a fresh event loop
