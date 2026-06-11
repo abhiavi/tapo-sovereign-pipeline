@@ -14,7 +14,7 @@ from pytapo.media_stream.downloader import Downloader
 # --- Configuration ---
 LOCAL_STORAGE = "/mnt/warehouse/tapo_buffer"
 CLOUD_STORAGE = "/home/abhishek/gdrive-personal/Adraca_Surveillance"
-OBSIDIAN_LOG = "/home/abhishek/ObsidianVault/03_Active_Projects/Tapo_Camera/Daily_Sync_Logs.md"
+OBSIDIAN_LOG = os.path.join(LOCAL_STORAGE, "Daily_Sync_Logs.md")
 RETENTION_DAYS = 7
 MAX_RETRIES = 3
 RETRY_DELAY = 300  # 5 minutes
