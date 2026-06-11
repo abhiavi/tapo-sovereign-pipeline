@@ -89,12 +89,22 @@ def download_camera(camera_name, camera_ip, target_date):
             
             # Run the downloader's async generator inside a fresh event loop
             async def run_downloader():
-                # Add an explicit timeout watchdog so we don't hang if the camera drops EOF
-                async with asyncio.timeout(300):
-                    async for chunk in downloader.download():
-                        if chunk == "Error: Failed to connect.":
-                            raise Exception("Download failed.")
-                        pass
+                import time
+                last_progress = -1
+                last_progress_time = time.time()
+                
+                async for chunk in downloader.download():
+                    if chunk == "Error: Failed to connect.":
+                        raise Exception("Download failed.")
+                        
+                    if isinstance(chunk, dict) and "progress" in chunk:
+                        progress = chunk["progress"]
+                        if progress != last_progress:
+                            last_progress = progress
+                            last_progress_time = time.time()
+                            
+                        if time.time() - last_progress_time > 300:
+                            raise TimeoutError(f"Stream stalled at {progress} bytes for 5 minutes.")
             
             try:
                 asyncio.run(run_downloader())
