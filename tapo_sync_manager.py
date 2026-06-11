@@ -12,7 +12,7 @@ from pytapo import Tapo
 from pytapo.media_stream.downloader import Downloader
 
 # --- Configuration ---
-LOCAL_STORAGE = "/mnt/warehouse/tapo_buffer"
+LOCAL_STORAGE = "/mnt/pve-storage/tapo_buffer"
 CLOUD_STORAGE = "/home/abhishek/gdrive-personal/Adraca_Surveillance"
 OBSIDIAN_LOG = os.path.join(LOCAL_STORAGE, "Daily_Sync_Logs.md")
 RETENTION_DAYS = 7
