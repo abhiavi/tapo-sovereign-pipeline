@@ -81,9 +81,10 @@ def download_camera(camera_name, camera_ip, target_date):
             if os.path.exists(final_path) and os.path.getsize(final_path) > 0:
                 continue
 
+            # Pytapo concatenates output_dir + fileName without os.path.join
             downloader = Downloader(
                 tapo, start_ts, end_ts, timeCorrection,
-                output_dir, None, False, 50, fileName=fileName
+                output_dir + "/", None, False, None, fileName=fileName
             )
             
             # Run the downloader's async generator inside a fresh event loop
