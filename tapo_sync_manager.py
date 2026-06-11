@@ -66,54 +66,64 @@ def download_camera(camera_name, camera_ip, target_date):
     
     for recording in recordings:
         for key in recording:
-            start_ts = recording[key]["startTime"]
-            end_ts = recording[key]["endTime"]
+            original_start_ts = recording[key]["startTime"]
+            original_end_ts = recording[key]["endTime"]
             
-            start_dt = datetime.fromtimestamp(start_ts)
-            end_dt = datetime.fromtimestamp(end_ts)
+            CHUNK_SIZE = 900 # 15 minutes in seconds
+            current_start = original_start_ts
             
-            start_str = start_dt.strftime("%H%M%S")
-            end_str = end_dt.strftime("%H%M%S")
-            
-            fileName = f"{camera_name}_{start_dt.strftime('%Y-%m-%d')}_{start_str}-{end_str}.mp4"
-            final_path = os.path.join(output_dir, fileName)
-            
-            if os.path.exists(final_path) and os.path.getsize(final_path) > 0:
-                continue
-
-            # Pytapo concatenates output_dir + fileName without os.path.join
-            downloader = Downloader(
-                tapo, start_ts, end_ts, timeCorrection,
-                output_dir + "/", window_size=50, fileName=fileName
-            )
-            
-            # Run the downloader's async generator inside a fresh event loop
-            async def run_downloader():
-                import time
-                last_progress = -1
-                last_progress_time = time.time()
+            while current_start < original_end_ts:
+                current_end = min(current_start + CHUNK_SIZE, original_end_ts)
                 
-                async for chunk in downloader.download():
-                    if chunk == "Error: Failed to connect.":
-                        raise Exception("Download failed.")
-                        
-                    if isinstance(chunk, dict) and "progress" in chunk:
-                        progress = chunk["progress"]
-                        if progress != last_progress:
-                            last_progress = progress
-                            last_progress_time = time.time()
+                start_dt = datetime.fromtimestamp(current_start)
+                end_dt = datetime.fromtimestamp(current_end)
+                
+                start_str = start_dt.strftime("%H%M%S")
+                end_str = end_dt.strftime("%H%M%S")
+                
+                fileName = f"{camera_name}_{start_dt.strftime('%Y-%m-%d')}_{start_str}-{end_str}.mp4"
+                final_path = os.path.join(output_dir, fileName)
+                
+                if os.path.exists(final_path) and os.path.getsize(final_path) > 0:
+                    current_start = current_end
+                    continue
+
+                # Pytapo concatenates output_dir + fileName without os.path.join
+                downloader = Downloader(
+                    tapo, current_start, current_end, timeCorrection,
+                    output_dir + "/", window_size=50, fileName=fileName
+                )
+                
+                # Run the downloader's async generator inside a fresh event loop
+                async def run_downloader():
+                    import time
+                    last_progress = -1
+                    last_progress_time = time.time()
+                    
+                    async for chunk in downloader.download():
+                        if chunk == "Error: Failed to connect.":
+                            raise Exception("Download failed.")
                             
-                        if time.time() - last_progress_time > 300:
-                            raise TimeoutError(f"Stream stalled at {progress} bytes for 5 minutes.")
-            
-            try:
-                asyncio.run(run_downloader())
-            except Exception as e:
-                write_log(f"    - ⚠️ Skipping corrupted block {fileName} due to stream failure: {type(e).__name__} - {str(e)}")
-                continue
-            
-            if os.path.exists(final_path):
-                total_downloaded += 1
+                        if isinstance(chunk, dict) and "progress" in chunk:
+                            progress = chunk["progress"]
+                            if progress != last_progress:
+                                last_progress = progress
+                                last_progress_time = time.time()
+                                
+                            if time.time() - last_progress_time > 300:
+                                raise TimeoutError(f"Stream stalled at {progress} bytes for 5 minutes.")
+                
+                try:
+                    asyncio.run(run_downloader())
+                except Exception as e:
+                    write_log(f"    - ⚠️ Skipping corrupted block {fileName} due to stream failure: {type(e).__name__} - {str(e)}")
+                    current_start = current_end
+                    continue
+                
+                if os.path.exists(final_path):
+                    total_downloaded += 1
+                
+                current_start = current_end
                 size_mb = os.path.getsize(final_path) / (1024 * 1024)
                 
                 metadata = {
