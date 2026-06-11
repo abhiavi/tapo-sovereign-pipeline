@@ -174,7 +174,7 @@ def main():
                 break
                 
             except Exception as e:
-                write_log(f"    - ❌ Error on attempt {attempt}/{MAX_RETRIES}: {str(e)}")
+                write_log(f"    - ❌ Error on attempt {attempt}/{MAX_RETRIES}: {type(e).__name__} - {str(e)}")
                 traceback.print_exc()
                 if attempt < MAX_RETRIES:
                     time.sleep(RETRY_DELAY)
