@@ -120,9 +120,12 @@ def download_camera(camera_name, camera_ip, target_date):
                     current_start = current_end
                     continue
                 
-                if os.path.exists(final_path):
-                    total_downloaded += 1
+                if not os.path.exists(final_path):
+                    write_log(f"    - ⚠️ Skipping block {fileName} because ffmpeg failed to generate the mp4 file.")
+                    current_start = current_end
+                    continue
                 
+                total_downloaded += 1
                 size_mb = os.path.getsize(final_path) / (1024 * 1024)
                 
                 metadata = {
