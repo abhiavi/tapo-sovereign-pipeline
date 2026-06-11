@@ -123,7 +123,6 @@ def download_camera(camera_name, camera_ip, target_date):
                 if os.path.exists(final_path):
                     total_downloaded += 1
                 
-                current_start = current_end
                 size_mb = os.path.getsize(final_path) / (1024 * 1024)
                 
                 metadata = {
@@ -131,11 +130,13 @@ def download_camera(camera_name, camera_ip, target_date):
                     "Date": target_date,
                     "Start_Time": start_dt.strftime("%Y-%m-%d %H:%M:%S"),
                     "End_Time": end_dt.strftime("%Y-%m-%d %H:%M:%S"),
-                    "Duration_Seconds": end_ts - start_ts,
+                    "Duration_Seconds": current_end - int(start_dt.timestamp()),
                     "File_Size_MB": round(size_mb, 2),
                     "File_Name": fileName
                 }
                 append_to_index(index_csv_path, metadata)
+                
+                current_start = current_end
 
     return total_downloaded
 
