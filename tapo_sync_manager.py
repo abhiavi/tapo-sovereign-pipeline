@@ -112,18 +112,19 @@ def download_camera(camera_name, camera_ip, target_date):
     return total_downloaded
 
 def sync_to_cloud(camera_name, target_date):
-    """Copies downloaded files and metadata to Google Drive."""
+    """Copies downloaded files and metadata to Google Drive via rclone sync."""
     src = os.path.join(LOCAL_STORAGE, camera_name, target_date)
-    dest = os.path.join(CLOUD_STORAGE, camera_name, target_date)
+    # Using the remote name from rclone.conf directly
+    remote_dest = f"Personal_Avi:Adraca_Surveillance/{camera_name}/{target_date}"
     
     if not os.path.exists(src):
         return False
         
-    os.makedirs(dest, exist_ok=True)
     write_log(f"    - Syncing {camera_name} video + metadata to Google Drive...")
     
     try:
-        subprocess.run(["rsync", "-a", f"{src}/", dest], check=True)
+        # Run native rclone sync inside the container
+        subprocess.run(["rclone", "sync", src, remote_dest, "--create-empty-src-dirs"], check=True)
         return True
     except subprocess.CalledProcessError as e:
         write_log(f"    - ❌ Cloud sync failed: {e}")
